@@ -1,0 +1,9 @@
+#!/usr/bin/env perl
+use strictures 1;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+use App::GPAudio;
+
+App::GPAudio->new(
+    config_dir => "$FindBin::Bin/../share",
+)->run;

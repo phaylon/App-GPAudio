@@ -1,0 +1,18 @@
+<ui>
+    <menubar name="main_menu">
+        <menu action="menu_file">
+            <menuitem action="rescan"/>
+            <separator/>
+            <menuitem action="quit"/>
+        </menu>
+        <menu action="menu_edit">
+            <menuitem action="show_preferences"/>
+        </menu>
+        <menu action="menu_view">
+            <menuitem action="show_library_pane"/>
+        </menu>
+        <menu action="menu_help">
+            <menuitem action="show_about"/>
+        </menu>
+    </menubar>
+</ui>
