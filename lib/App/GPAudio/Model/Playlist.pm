@@ -55,8 +55,6 @@ property item_resultset => (
             ->_get_playlist_item_rs
             ->search({ playlist_id => $self->get_id }, {
                 order_by => { -asc => 'position' },
-   #             join => 'file',
-   #             prefetch => ['file'],
             });
     },
     handles => {
@@ -72,6 +70,59 @@ sub BUILD_INSTANCE {
     $self->_init_items;
 }
 
+sub get_random {
+    my ($self) = @_;
+    my $count = $self->iter_n_children;
+    return undef
+        unless $count;
+    my $idx = rand($count - 1);
+    my $iter = $self->iter_nth_child(undef, $idx);
+    return $self->get($iter, PLAYLIST_ID);
+}
+
+sub get_next {
+    my ($self, $id) = @_;
+    my $next;
+    my $seen;
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($seen) {
+            $next = $self->get($iter, PLAYLIST_ID);
+            return 1;
+        }
+        if ($self->get($iter, PLAYLIST_ID) eq $id) {
+            $seen = 1;
+        }
+        return undef;
+    });
+    unless (defined $next) {
+        $next = $self->get_first;
+    }
+    return $next;
+}
+
+sub get_first {
+    my ($self) = @_;
+    my $iter = $self->get_iter_first;
+    return undef
+        unless $iter;
+    return $self->get($iter, PLAYLIST_ID);
+}
+
+sub get_by_id {
+    my ($self, $id, $col) = @_;
+    my $found;
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($self->get($iter, PLAYLIST_ID) eq $id) {
+            $found = $self->get($iter, $col);
+            return 1;
+        }
+        return undef;
+    });
+    return $found;
+}
+
 sub mark_as_playing {
     my ($self, $item_id) = @_;
     $self->foreach(sub {
@@ -79,7 +130,8 @@ sub mark_as_playing {
         $self->set($iter, PLAYLIST_FONT_WEIGHT, 400)
             if $self->get($iter, PLAYLIST_FONT_WEIGHT) == 800;
         $self->set($iter, PLAYLIST_FONT_WEIGHT, 800)
-            if $self->get($iter, PLAYLIST_ID) eq $item_id;
+            if defined($item_id)
+            and $self->get($iter, PLAYLIST_ID) eq $item_id;
         return undef;
     });
     return 1;
@@ -186,6 +238,7 @@ sub _add_entry {
         PLAYLIST_POSITION, $item->position,
         PLAYLIST_ID, $item->id,
         PLAYLIST_FILE_ID, $file->id,
+        PLAYLIST_FONT_WEIGHT, 400,
     );
     $self->_post_calc($iter);
     return $iter;
