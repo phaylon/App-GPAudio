@@ -6,6 +6,9 @@
             <menuitem action="quit"/>
         </menu>
         <menu action="menu_edit">
+            <menuitem action="add_playlist"/>
+            <menuitem action="remove_playlist"/>
+            <separator/>
             <menuitem action="show_preferences"/>
         </menu>
         <menu action="menu_view">

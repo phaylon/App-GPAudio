@@ -49,13 +49,6 @@ property sources_model => (
     },
 );
 
-property last_click_position => (
-    is => 'rpwp',
-    init_arg => undef,
-    clearer => 1,
-    predicate => 1,
-);
-
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_hide_rescan_bar;
@@ -69,61 +62,13 @@ sub on_drag_get {
     my $tree_select = $view->get_selection;
     my $model = $view->get_model;
     my @paths = $tree_select->get_selected_rows;
-    my $pack = join(':', map {
+    my $pack = join(':', 'add', map {
         my $iter = $model->get_iter($_);
         $model->get($iter, LIBRARY_ID);
     } @paths);
     #my ($model, $iter) = $tree_select->get_selected;
     $drag_select->set($drag_select->get_target, 8, $pack);
     return $drag_select;
-}
-
-sub on_allow_select {
-    my ($self) = @_;
-    return $self->_has_last_click_position ? 0 : 1;
-}
-
-sub on_click {
-    my ($self, $view, $ev) = @_;
-    $self->_clear_last_click_position;
-    my $path = $view->get_path_at_pos($ev->x, $ev->y);
-    my $selection = $view->get_selection;
-    if ($ev->button == 3) {
-        unless ($selection->path_is_selected($path)) {
-            $selection->unselect_all;
-            $selection->select_path($path);
-        }
-        warn "POPUP";
-        return 1;
-    }
-    elsif ($ev->button == 1) {
-        return undef
-            unless defined $path;
-        return undef
-            unless $selection->path_is_selected($path);
-        $self->_set_last_click_position([$ev->x, $ev->y]);
-    }
-    return undef;
-}
-
-sub on_click_end {
-    my ($self, $view, $ev) = @_;
-    my $path = $view->get_path_at_pos($ev->x, $ev->y);
-    my $selection = $view->get_selection;
-    if ($ev->button == 1) {
-        return undef
-            unless defined $path;
-        if ($self->_has_last_click_position) {
-            my ($x, $y) = @{ $self->_get_last_click_position };
-            if ($ev->x eq $x and $ev->y eq $y) {
-                my $path = $view->get_path_at_pos($x, $y);
-                $selection->unselect_all;
-                $selection->select_path($path);
-            }
-            $self->_clear_last_click_position;
-        }
-    }
-    return undef;
 }
 
 sub on_rescan {

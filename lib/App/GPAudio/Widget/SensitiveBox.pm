@@ -22,10 +22,10 @@ sub BUILD_INSTANCE {
     $self->set_spacing(0);
     $self->_on_sensitivity_change(sub {
         my ($model, undef, $self) = @_;
-        $self->set_sensitive($model->get_value);
+        $self->set_sensitive($model->get_value ? 1 : 0);
         return undef;
     }, $self);
-    $self->set_sensitive($self->_get_sensitivity);
+    $self->set_sensitive($self->_get_sensitivity ? 1 : 0);
 }
 
 register;

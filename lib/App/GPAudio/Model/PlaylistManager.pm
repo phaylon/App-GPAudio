@@ -35,7 +35,22 @@ sub get_playlist {
     return Playlist->new(
         id => $id,
         schema => $self->_get_schema,
+        title => $self->get($iter, 1),
     );
+}
+
+sub remove_playlist {
+    my ($self, $id) = @_;
+    $self->_get_playlist_rs->find($id)->delete;
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($id eq $self->get($iter, 0)) {
+            $self->remove($iter);
+            return 1;
+        }
+        return undef;
+    });
+    return 1;
 }
 
 sub add_playlist {

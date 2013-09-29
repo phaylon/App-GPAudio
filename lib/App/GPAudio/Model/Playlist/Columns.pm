@@ -9,6 +9,7 @@ use Exporter 'import';
 my @_columns = qw(
     position
     id
+    file_id
     title
     album
     artist
@@ -17,6 +18,7 @@ my @_columns = qw(
     path
     length
     length_readable
+    font_weight
 );
 
 my $_idx = 0;

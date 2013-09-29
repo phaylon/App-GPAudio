@@ -26,4 +26,9 @@ belongs_to file => (
     'library_id',
 );
 
+unique_constraint uniq__playlist_item__position => [qw(
+    playlist_id
+    position
+)];
+
 1;

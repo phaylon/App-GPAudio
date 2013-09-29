@@ -19,6 +19,7 @@ sub _build_config_functions {
     return {
         library_column => \&library_column,
         playlist_column => \&playlist_column,
+        get => sub { $_[0]->{ $_[1] } },
         stock_icon => sub {
             my ($id, $size) = @_;
             return Gtk2::Image->new_from_stock($id, $size);
