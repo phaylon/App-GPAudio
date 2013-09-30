@@ -3,6 +3,7 @@ use strictures 1;
 package App::GPAudio::Controller::Play;
 use Object::Glib;
 use App::GPAudio::Model::Playlist::Columns qw( :all );
+use App::GPAudio::Util qw( readable_expanded_length );
 
 use namespace::clean;
 
@@ -51,6 +52,10 @@ property player => (
         _player_is_paused => 'is_paused',
         _unpause_player => 'unpause',
         _when_eos => ['signal_connect', 'eos'],
+        _when_duration_available => ['signal_connect', 'duration'],
+        _query_player_position => 'query_position',
+        _query_player_duration => 'query_duration',
+        _seek_player => 'seek_to',
     },
 );
 
@@ -73,6 +78,59 @@ property playlist_view => (
     },
 );
 
+property position_label => (
+    type => 'Object',
+    class => 'Gtk2::Label',
+    required => 1,
+    handles => {
+        _set_position_label => 'set_label',
+    },
+);
+
+property position_scale => (
+    type => 'Object',
+    class => 'Gtk2::Scale',
+    required => 1,
+    handles => {
+        _set_scale_range => 'set_range',
+        _set_scale_position => 'set_value',
+    },
+);
+
+property artist_label => (
+    type => 'Object',
+    class => 'Gtk2::Label',
+    required => 1,
+    handles => {
+        _set_artist_label => 'set_label',
+    },
+);
+
+property title_label => (
+    type => 'Object',
+    class => 'Gtk2::Label',
+    required => 1,
+    handles => {
+        _set_title_label => 'set_label',
+    },
+);
+
+property duration_label => (
+    type => 'Object',
+    class => 'Gtk2::Label',
+    required => 1,
+    handles => {
+        _set_duration_label => 'set_label',
+    },
+);
+
+property scale_manual => (
+    is => 'rpwp',
+    init_arg => undef,
+);
+
+my $_time_factor = 1_000_000_000;
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_when_eos(sub {
@@ -84,10 +142,31 @@ sub BUILD_INSTANCE {
         $self->_update_position;
         return 1;
     });
+    $self->_set_position_label('--:--');
+    $self->_set_duration_label('--:--');
 }
 
 sub _update_position {
     my ($self) = @_;
+    my $position = $self->_query_player_position;
+    if ($position > 0) {
+        unless ($self->_get_scale_manual) {
+            my $real_position = int($position / $_time_factor);
+            $self->_set_position_label(
+                readable_expanded_length($real_position),
+            );
+            $self->_set_scale_position($position);
+        }
+    }
+    else {
+        if (defined $self->_get_playing_item) {
+            $self->_set_position_label('0:00');
+        }
+        else {
+            $self->_set_position_label('--:--');
+        }
+        $self->_set_scale_position(0);
+    }
     return 1;
 }
 
@@ -96,6 +175,9 @@ after _stop_player => sub {
     if ($self->_has_playing_playlist) {
         $self->_mark_as_playing(undef);
         $self->_set_playing_item(undef);
+        $self->_set_duration_label('--:--');
+        $self->_set_title_label('');
+        $self->_set_artist_label('');
     }
 };
 
@@ -124,8 +206,16 @@ sub _play_item {
     my ($self, $id) = @_;
     $self->_mark_as_playing($id);
     my $path = $self->_get_playlist_value($id, PLAYLIST_PATH);
+    my $length = $self->_get_playlist_value($id, PLAYLIST_LENGTH);
+    my $title = $self->_get_playlist_value($id, PLAYLIST_TITLE);
+    my $artist = $self->_get_playlist_value($id, PLAYLIST_ARTIST);
     $self->_play_file($path);
     $self->_set_playing_item($id);
+    $self->_set_duration_label(readable_expanded_length($length));
+    $self->_set_scale_range(0, $length * $_time_factor);
+    $self->_set_title_label($title);
+    $self->_set_artist_label($artist);
+    $self->_update_position;
     return 1;
 }
 
@@ -141,6 +231,35 @@ sub _play_next {
     $self->_play_item($next);
     $self->_scroll_to($next);
     return 1;
+}
+
+sub on_scale_change {
+    my ($self, $scale) = @_;
+    if ($self->_get_scale_manual) {
+        my $value = $scale->get_value;
+        $self->_set_position_label(
+            readable_expanded_length(int($value / $_time_factor)),
+        );
+    }
+    return undef;
+}
+
+sub on_scale_click {
+    my ($self, $scale, $ev) = @_;
+    if ($ev->button == 1) {
+        $self->_set_scale_manual(1);
+    }
+    return undef;
+}
+
+sub on_scale_unclick {
+    my ($self, $scale, $ev) = @_;
+    if ($ev->button == 1) {
+        $self->_set_scale_manual(0);
+        my $value = $scale->get_value;
+        $self->_seek_player($value);
+    }
+    return undef;
 }
 
 sub on_next {
