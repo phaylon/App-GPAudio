@@ -7,6 +7,7 @@ use namespace::clean;
 
 my @_names = qw(
     source_sensitivity
+    item_sensitivity
 );
 
 for my $name (@_names) {
@@ -26,9 +27,21 @@ property source_selected => (
     on_set => '_update_source_sensitivity',
 );
 
+property item_count => (
+    is => 'rw',
+    on_set => '_update_item_sensitivity',
+);
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_update_source_sensitivity;
+    $self->_update_item_sensitivity;
+}
+
+sub _update_item_sensitivity {
+    my ($self) = @_;
+    $self->_set_item_sensitivity($self->get_item_count ? 1 : 0);
+    return 1;
 }
 
 sub _update_source_sensitivity {

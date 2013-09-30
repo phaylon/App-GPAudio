@@ -23,6 +23,7 @@ $_types[PLAYLIST_YEAR] = 'Glib::String';
 $_types[PLAYLIST_LENGTH] = 'Glib::String';
 $_types[PLAYLIST_LENGTH_READABLE] = 'Glib::String';
 $_types[PLAYLIST_FONT_WEIGHT] = 'Glib::Int';
+$_types[PLAYLIST_FAILED] = 'Glib::String';
 
 property id => (
     is => 'ro',
@@ -68,6 +69,21 @@ sub BUILD_INSTANCE {
     $self->set_column_types(@_types);
     $self->set_sort_column_id(PLAYLIST_POSITION, 'ascending');
     $self->_init_items;
+}
+
+sub summarize {
+    my ($self) = @_;
+    my $row = $self->_item_rs({}, {
+        join => ['file'],
+        select => [
+            { count => 'me.id' },
+            { sum => 'file.length' },
+        ],
+        as => ['count_all', 'length_all'],
+    })->first;
+    my $count = $row->get_column('count_all') || 0;
+    my $length = $row->get_column('length_all') || 0;
+    return $count, $length;
 }
 
 sub get_random {
@@ -154,6 +170,19 @@ sub _find_last_position {
     return $item ? ($item->position + 1) : 0;
 }
 
+sub mark_failed {
+    my ($self, $id, $flag) = @_;
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($self->get($iter, PLAYLIST_ID) eq $id) {
+            $self->set($iter, PLAYLIST_FAILED, $flag ? 'red' : undef);
+            return 1;
+        }
+        return undef;
+    });
+    return 1;
+}
+
 sub remove_files {
     my ($self, @ids) = @_;
     $self->_item_rs->search({ 'me.id' => { -in => \@ids } })->delete;
@@ -165,15 +194,18 @@ sub remove_files {
         $item->update({ position => $new_idx });
         $new_pos{ $item->id } = $new_idx;
     }
+    my $count = $self->iter_n_children;
+    for my $idx (reverse(0 .. ($count - 1))) {
+        my $iter = $self->iter_nth_child(undef, $idx);
+        my $id = $self->get($iter, PLAYLIST_ID);
+        unless (exists $new_pos{ $id }) {
+            $self->remove($iter);
+        }
+    }
     $self->foreach(sub {
         my ($self, $path, $iter) = @_;
         my $id = $self->get($iter, PLAYLIST_ID);
-        if (exists $new_pos{ $id }) {
-            $self->set($iter, PLAYLIST_POSITION, $new_pos{ $id });
-        }
-        else {
-            $self->remove($iter);
-        }
+        $self->set($iter, PLAYLIST_POSITION, $new_pos{ $id });
         return undef;
     });
     return 1;

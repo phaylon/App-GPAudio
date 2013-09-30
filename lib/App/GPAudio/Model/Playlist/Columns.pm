@@ -19,6 +19,7 @@ my @_columns = qw(
     length
     length_readable
     font_weight
+    failed
 );
 
 my $_idx = 0;

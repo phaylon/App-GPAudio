@@ -21,6 +21,7 @@ my @_columns = qw(
     sort_artist
     sort_length
     length_readable
+    search
 );
 
 my $_idx = 0;

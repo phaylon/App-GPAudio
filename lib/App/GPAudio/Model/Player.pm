@@ -47,7 +47,6 @@ sub BUILD_INSTANCE {
             $self->signal_emit('eos');
         }
         elsif ($message->type & 'error') {
-            warn "ERROR " . $message->error;
             $self->stop;
             $self->signal_emit('error', $message->error);
         }

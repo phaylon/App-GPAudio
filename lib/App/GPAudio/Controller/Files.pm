@@ -4,6 +4,7 @@ package App::GPAudio::Controller::Files;
 use Object::Glib;
 use Path::Tiny;
 use App::GPAudio::Model::Library::Columns qw( :all );
+use App::GPAudio::Util qw( readable_expanded_length );
 use curry::weak;
 
 use namespace::clean;
@@ -37,6 +38,17 @@ property library_model => (
         _scan_paths => 'scan',
         _when_scan_starts => ['signal_connect', 'scan_started'],
         _when_scan_ends => ['signal_connect', 'scan_ended'],
+        _summarize => 'summarize',
+    },
+);
+
+property library_filter => (
+    type => 'Object',
+    class => 'Gtk2::TreeModelFilter',
+    required => 1,
+    handles => {
+        _set_filter_func => 'set_visible_func',
+        _refilter => 'refilter',
     },
 );
 
@@ -49,12 +61,64 @@ property sources_model => (
     },
 );
 
+property search_text => (
+    is => 'rpwp',
+    init_arg => undef,
+);
+
+property summary_label => (
+    type => 'Object',
+    class => 'Gtk2::Label',
+    required => 1,
+    handles => {
+        _set_summary_label => 'set_label',
+    },
+);
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_hide_rescan_bar;
+    $self->_set_filter_func($self->curry::weak::_filter_files);
     $self->_when_scan_starts($self->curry::weak::on_scan_start);
     $self->_when_scan_ends($self->curry::weak::on_scan_end);
     $self->_set_rescan_label('Scanning...');
+    $self->_recalc_summary;
+}
+
+sub _recalc_summary {
+    my ($self) = @_;
+    my ($count, $length) = $self->_summarize;
+    $self->_set_summary_label(join ' / ',
+        sprintf('%s track%s', $count, $count == 1 ? '' : 's'),
+        readable_expanded_length($length),
+    );
+    return 1;
+}
+
+sub _filter_files {
+    my ($self, $model, $iter) = @_;
+    my $search = $self->_get_search_text;
+    return 1
+        unless length $search;
+    my $text = $model->get($iter, LIBRARY_SEARCH);
+    my $show = $text =~ m{\Q$search\E}i;
+    return $show;
+}
+
+sub on_clear_search {
+    my ($self, $entry) = @_;
+    $entry->get_buffer->set(text => '');
+    $self->_set_search_text('');
+    $self->_refilter;
+    return undef;
+}
+
+sub on_search {
+    my ($self, $buffer) = @_;
+    my $search = $buffer->get('text');
+    $self->_set_search_text($search);
+    $self->_refilter;
+    return undef;
 }
 
 sub on_drag_get {
@@ -100,6 +164,7 @@ sub on_scan_end {
     my ($self) = @_;
     $self->_hide_rescan_bar;
     $self->_set_rescan_label('Scanning...');
+    $self->_recalc_summary;
     return undef;
 }
 

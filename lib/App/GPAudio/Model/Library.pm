@@ -46,6 +46,7 @@ $_types[LIBRARY_TRACK] = 'Glib::String';
 $_types[LIBRARY_YEAR] = 'Glib::String';
 $_types[LIBRARY_LENGTH] = 'Glib::String';
 $_types[LIBRARY_LENGTH_READABLE] = 'Glib::String';
+$_types[LIBRARY_SEARCH] = 'Glib::String';
 
 $_types[LIBRARY_SORT_LENGTH] = 'Glib::String';
 $_types[LIBRARY_SORT_TITLE] = 'Glib::String';
@@ -56,6 +57,20 @@ sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->set_column_types(@_types);
     $self->_init_from_storage;
+}
+
+sub summarize {
+    my ($self) = @_;
+    my $row = $self->_get_files_rs->search({}, {
+        select => [
+            { count => 'me.id' },
+            { sum => 'me.length' },
+        ],
+        as => ['count_all', 'length_all'],
+    })->first;
+    my $count = $row->get_column('count_all') || 0;
+    my $length = $row->get_column('length_all') || 0;
+    return $count, $length;
 }
 
 sub scan {
@@ -174,6 +189,14 @@ sub _post_calc {
             $_concat->(sprintf('%08d', $length), $track, $id),
         LIBRARY_LENGTH_READABLE,
             readable_length($length),
+        LIBRARY_SEARCH,
+            join(' ', map { defined($_) ? $_ : () }
+                length($title) ? (
+                    $title,
+                    $artist,
+                    $album,
+                ) : ($path),
+            ),
     );
     $self->set($iter, LIBRARY_TITLE, path($path)->basename)
         unless length $title;

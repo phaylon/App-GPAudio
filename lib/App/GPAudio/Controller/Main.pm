@@ -13,6 +13,7 @@ property window => (
     required => 1,
     handles => {
         _show_window => 'show_all',
+        _maximize_window => 'maximize',
     },
 );
 
@@ -29,6 +30,7 @@ property library_pane => (
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_show_window;
+    $self->_maximize_window;
 }
 
 sub on_toggle_library_visible {

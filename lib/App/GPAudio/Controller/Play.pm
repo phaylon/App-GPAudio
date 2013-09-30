@@ -53,6 +53,7 @@ property player => (
         _unpause_player => 'unpause',
         _when_eos => ['signal_connect', 'eos'],
         _when_duration_available => ['signal_connect', 'duration'],
+        _when_error => ['signal_connect', 'error'],
         _query_player_position => 'query_position',
         _query_player_duration => 'query_duration',
         _seek_player => 'seek_to',
@@ -138,12 +139,29 @@ sub BUILD_INSTANCE {
         $self->_play_next;
         return undef;
     }, $self);
+    $self->_when_error(sub {
+        my ($player, $error, $self) = @_;
+        $error =~ s{ at \s+ .+ \s+ line \s+ \d+ .* $}{}x;
+        chomp $error;
+        $self->_mark_current_as_failed;
+        $self->display_status(10, "Error: $error");
+        $self->_play_next;
+        return undef;
+    }, $self);
     Glib::Timeout->add(250, sub {
         $self->_update_position;
         return 1;
     });
     $self->_set_position_label('--:--');
     $self->_set_duration_label('--:--');
+}
+
+sub _mark_current_as_failed {
+    my ($self) = @_;
+    my $item_id = $self->_get_playing_item;
+    my $list = $self->_get_playing_playlist;
+    $list->mark_failed($item_id, 1);
+    return 1;
 }
 
 sub _update_position {
@@ -198,6 +216,7 @@ sub _scroll_to {
 sub _play_item_in_list {
     my ($self, $list, $id) = @_;
     $self->_set_playing_playlist($list);
+    $list->mark_failed($id, 0);
     $self->_play_item($id);
     return 1;
 }
@@ -306,5 +325,9 @@ sub shutdown {
     my ($self) = @_;
     $self->_stop_player;
 }
+
+with qw(
+    App::GPAudio::Controller::WithStatus
+);
 
 register;
