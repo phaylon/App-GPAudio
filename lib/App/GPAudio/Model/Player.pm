@@ -34,6 +34,7 @@ property playbin => (
         _get_playbin_bus => 'get_bus',
         _query_playbin => 'query',
         _seek_playbin => 'seek',
+        set_volume => ['set', 'volume'],
     },
 );
 
@@ -98,6 +99,11 @@ sub query_duration {
 sub query_position {
     my ($self) = @_;
     return $self->_query_by_type('position');
+}
+
+sub is_playing {
+    my ($self) = @_;
+    return $self->get_state eq 'playing';
 }
 
 sub is_paused {

@@ -29,6 +29,20 @@ sub BUILD_INSTANCE {
     $self->_init_playlists;
 }
 
+sub rename_playlist {
+    my ($self, $id, $title) = @_;
+    $self->_get_playlist_rs->find($id)->update({ title => $title });
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($self->get($iter, 0) eq $id) {
+            $self->set($iter, 1, $title);
+            return 1;
+        }
+        return undef;
+    });
+    return 1;
+}
+
 sub get_playlist {
     my ($self, $iter) = @_;
     my $id = $self->get($iter, 0);

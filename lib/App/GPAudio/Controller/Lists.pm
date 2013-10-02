@@ -17,6 +17,7 @@ property playlist_manager => (
         _add_list => 'add_playlist',
         _remove_list => 'remove_playlist',
         _get_list => 'get_playlist',
+        _rename_list => 'rename_playlist',
     },
 );
 
@@ -28,11 +29,19 @@ property remove_dialog_builder => (
     },
 );
 
-property add_dialog_builder => (
+property properties_dialog_builder => (
     type => 'Code',
     required => 1,
     handles => {
-        _create_add_dialog => 'execute',
+        _create_properties_dialog => 'execute',
+    },
+);
+
+property name_dialog_builder => (
+    type => 'Code',
+    required => 1,
+    handles => {
+        _create_name_dialog => 'execute',
     },
 );
 
@@ -96,8 +105,8 @@ property summary_label => (
 
 sub _recalc_summary {
     my ($self) = @_;
-    if ($self->_has_active_playlist) {
-        my ($count, $length) = $self->_get_active_playlist->summarize;
+    if (my $list = $self->_get_active_playlist) {
+        my ($count, $length) = $list->summarize;
         $self->_set_summary_label(join ' / ',
             sprintf('%s track%s', $count, $count == 1 ? '' : 's'),
             readable_expanded_length($length),
@@ -206,6 +215,23 @@ sub on_select {
     return undef;
 }
 
+sub on_properties {
+    my ($self) = @_;
+    my $selection = $self->_get_view_selection;
+    my $model = $self->_get_view_model;
+    my $list = $self->_get_active_playlist;
+    my @files = map {
+        my $path = $_;
+        my $iter = $model->get_iter($path);
+        $list->get_file_object($model->get($iter, PLAYLIST_ID));
+    } $selection->get_selected_rows;
+    my $dialog = $self->_create_properties_dialog(files => \@files);
+    $dialog->show_all;
+    my $response = $dialog->run;
+    $dialog->destroy;
+    return undef;
+}
+
 sub on_remove {
     my ($self) = @_;
     my $list = $self->_get_active_playlist;
@@ -220,16 +246,40 @@ sub on_remove {
     return undef;
 }
 
+sub on_rename {
+    my ($self) = @_;
+    my $list = $self->_get_active_playlist;
+    my $current = $list->get_title;
+    my $view = $self->_create_name_dialog(
+        dialog_title => qq{Rename '$current' Playlist},
+    );
+    my $dialog = $view->get_root;
+    my $entry = $view->get_widget('entry');
+    $dialog->show_all;
+    $entry->set(text => $current);
+    $entry->grab_focus;
+    my $response = $dialog->run;
+    my $title = $entry->get('text');
+    if ($response eq 'ok' and length $title) {
+        $self->_rename_list($list->get_id, $title);
+        $list->set_title($title);
+    }
+    $dialog->destroy;
+    return undef;
+}
+
 sub on_add {
     my ($self) = @_;
-    my $view = $self->_create_add_dialog;
+    my $view = $self->_create_name_dialog(
+        dialog_title => 'Add Playlist',
+    );
     my $dialog = $view->get_root;
     my $entry = $view->get_widget('entry');
     $dialog->show_all;
     $entry->grab_focus;
     my $response = $dialog->run;
     my $title = $entry->get('text');
-    if ($response eq 'ok') {
+    if ($response eq 'ok' and length $title) {
         my $iter = $self->_add_list($title);
         $self->_set_selected_playlist($iter);
     }

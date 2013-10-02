@@ -1,11 +1,11 @@
 use strictures 1;
 
-package App::GPAudio::Widget::TreeViewActive;
+package App::GPAudio::Model::TreeFilterActive;
 use Object::Glib;
 
 use namespace::clean;
 
-extends ['Gtk2', 'TreeView'];
+extends ['Gtk2', 'TreeModelFilter'];
 
 property active_model => (
     type => 'Object',
@@ -16,17 +16,18 @@ property active_model => (
     },
 );
 
+property empty_model => (
+    is => 'rpo',
+    required => 1,
+);
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
+    my $empty = $self->_get_empty_model;
     $self->_when_active_model_changes(sub {
         my ($active, undef, $self) = @_;
-        if (my $model = $active->get_value) {
-            my $filter = Gtk2::TreeModelFilter->new($model);
-            $self->set_model($filter);
-        }
-        else {
-            $self->set_model(undef);
-        }
+        $self->set('child_model', $active->get_value || $empty);
+        $self->refilter;
         return undef;
     }, $self);
 }

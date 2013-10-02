@@ -4,6 +4,7 @@ package App::GPAudio::Controller::Play;
 use Object::Glib;
 use App::GPAudio::Model::Playlist::Columns qw( :all );
 use App::GPAudio::Util qw( readable_expanded_length );
+use Desktop::Notify;
 
 use namespace::clean;
 
@@ -50,6 +51,7 @@ property player => (
         _stop_player => 'stop',
         _pause_player => 'pause',
         _player_is_paused => 'is_paused',
+        _player_is_playing => 'is_playing',
         _unpause_player => 'unpause',
         _when_eos => ['signal_connect', 'eos'],
         _when_duration_available => ['signal_connect', 'duration'],
@@ -57,6 +59,7 @@ property player => (
         _query_player_position => 'query_position',
         _query_player_duration => 'query_duration',
         _seek_player => 'seek_to',
+        _set_volume => 'set_volume',
     },
 );
 
@@ -130,10 +133,52 @@ property scale_manual => (
     init_arg => undef,
 );
 
+property notifier => (
+    type => 'Object',
+    class => 'App::GPAudio::Model::Notifier',
+    required => 1,
+    handles => {
+        _notify => ['notify', 'Now Playing'],
+    },
+);
+
+property dbus_session => (
+    is => 'rpo',
+    required => 1,
+);
+
+property dbus => (
+    type => 'Object',
+    required => 1,
+    handles => {
+        _when_media_key_pressed => [
+            'connect_to_signal',
+            'MediaPlayerKeyPressed',
+        ],
+    },
+);
+
 my $_time_factor = 1_000_000_000;
 
 sub BUILD_INSTANCE {
     my ($self) = @_;
+    $self->_when_media_key_pressed(sub {
+        my ($app, $key) = @_;
+        return undef
+            unless $app eq 'GPAudio';
+        if (lc($key) eq 'next') {
+            $self->_play_next;
+        }
+        elsif (lc($key) eq 'play') {
+            if ($self->_player_is_playing) {
+                $self->_pause_player;
+            }
+            else {
+                $self->_play_first_or_unpause;
+            }
+        }
+        return undef;
+    });
     $self->_when_eos(sub {
         my ($player, $self) = @_;
         $self->_play_next;
@@ -234,6 +279,10 @@ sub _play_item {
     $self->_set_scale_range(0, $length * $_time_factor);
     $self->_set_title_label($title);
     $self->_set_artist_label($artist);
+    $self->_notify(join ' - ',
+        $artist ? $artist : (),
+        $title,
+    );
     $self->_update_position;
     return 1;
 }
@@ -250,6 +299,12 @@ sub _play_next {
     $self->_play_item($next);
     $self->_scroll_to($next);
     return 1;
+}
+
+sub on_volume_change {
+    my ($self, $button) = @_;
+    $self->_set_volume($button->get_value);
+    return undef;
 }
 
 sub on_scale_change {
@@ -296,7 +351,7 @@ sub on_activate {
     return undef;
 }
 
-sub on_play {
+sub _play_first_or_unpause {
     my ($self) = @_;
     if ($self->_player_is_paused) {
         $self->_unpause_player;
@@ -306,6 +361,12 @@ sub on_play {
         my $first = $list->get_first;
         $self->_play_item_in_list($list, $first);
     }
+    return 1;
+}
+
+sub on_play {
+    my ($self) = @_;
+    $self->_play_first_or_unpause;
     return undef;
 }
 

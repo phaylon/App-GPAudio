@@ -35,9 +35,15 @@ property settings => (
              "_has_stored_$_" => ['exists', $_],
             );
         } qw(
+            volume
             pane_position
             shuffle_active
             playlist_id
+            show_item_album
+            show_item_year
+            show_file_album
+            show_file_year
+            show_file_added
         )),
     },
 );
@@ -49,6 +55,16 @@ property pane => (
     handles => {
         _set_pane_position => ['set', 'position'],
         _get_pane_position => ['get', 'position'],
+    },
+);
+
+property volume => (
+    type => 'Object',
+    class => 'Gtk2::VolumeButton',
+    required => 1,
+    handles => {
+        _get_volume => ['get_value'],
+        _set_volume => ['set_value'],
     },
 );
 
@@ -73,14 +89,63 @@ property playlist_selection => (
     },
 );
 
+my @_toggle = qw(
+    show_item_album
+    show_item_year
+    show_file_album
+    show_file_year
+    show_file_added
+);
+
+for my $toggle (@_toggle) {
+    property $toggle => (
+        type => 'Object',
+        class => 'Gtk2::ToggleAction',
+        required => 1,
+        handles => {
+            "_get_$toggle" => ['get', 'active'],
+            "_set_$toggle" => ['set', 'active'],
+        },
+    );
+}
+
+my @_load = (
+    ['pane_position', '_set_pane_position'],
+    ['shuffle_active', '_set_shuffle_active'],
+    ['playlist_id', '_set_active_playlist'],
+    ['volume', '_set_volume'],
+    ['show_item_album', '_set_show_item_album'],
+    ['show_item_year', '_set_show_item_year'],
+    ['show_file_album', '_set_show_file_album'],
+    ['show_file_year', '_set_show_file_year'],
+    ['show_file_added', '_set_show_file_added', 0],
+);
+
+my @_save = (
+    ['pane_position', '_get_pane_position'],
+    ['shuffle_active', '_get_shuffle_active'],
+    ['playlist_id', '_get_active_playlist'],
+    ['volume', sub { sprintf '%0.2f', $_[0]->_get_volume }],
+    ['show_item_album', '_get_show_item_album'],
+    ['show_item_year', '_get_show_item_year'],
+    ['show_file_album', '_get_show_file_album'],
+    ['show_file_year', '_get_show_file_year'],
+    ['show_file_added', '_get_show_file_added'],
+);
+
 sub startup {
     my ($self) = @_;
-    $self->_set_pane_position($self->_get_stored_pane_position)
-        if $self->_has_stored_pane_position;
-    $self->_set_shuffle_active($self->_get_stored_shuffle_active)
-        if $self->_has_stored_shuffle_active;
-    $self->_set_active_playlist($self->_get_stored_playlist_id)
-        if $self->_has_stored_playlist_id;
+    for my $load (@_load) {
+        my ($name, $set, $default) = @$load;
+        my $get_stored = "_get_stored_$name";
+        my $has_stored = "_has_stored_$name";
+        if ($self->$has_stored) {
+            $self->$set($self->$get_stored);
+        }
+        elsif (@$load > 2) {
+            $self->$set($default);
+        }
+    }
     return 1;
 }
 
@@ -89,18 +154,13 @@ sub shutdown {
     $self->_txn(sub {
         my $rs = $self->_settings_rs->search;
         $rs->delete;
-        $rs->create({
-            key => 'pane_position',
-            value => $self->_get_pane_position,
-        });
-        $rs->create({
-            key => 'shuffle_active',
-            value => $self->_get_shuffle_active,
-        });
-        $rs->create({
-            key => 'playlist_id',
-            value => $self->_get_active_playlist,
-        });
+        for my $save (@_save) {
+            my ($key, $get) = @$save;
+            $rs->create({
+                key => $key,
+                value => $self->$get,
+            });
+        }
     });
     return 1;
 }

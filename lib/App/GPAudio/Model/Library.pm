@@ -35,9 +35,15 @@ property cache => (
     },
 );
 
+property cancel_scan => (
+    is => 'rpwp',
+    init_arg => undef,
+);
+
 my @_types;
-$_types[LIBRARY_ID] = 'Glib::String';
+$_types[LIBRARY_ID] = 'Glib::Int';
 $_types[LIBRARY_ADDED] = 'Glib::String';
+$_types[LIBRARY_ADDED_READABLE] = 'Glib::String';
 $_types[LIBRARY_TITLE] = 'Glib::String';
 $_types[LIBRARY_ARTIST] = 'Glib::String';
 $_types[LIBRARY_ALBUM] = 'Glib::String';
@@ -59,6 +65,17 @@ sub BUILD_INSTANCE {
     $self->_init_from_storage;
 }
 
+sub get_file_object {
+    my ($self, $id) = @_;
+    return $self->_get_files_rs->find($id);
+}
+
+sub cancel_scan {
+    my ($self) = @_;
+    $self->_set_cancel_scan(1);
+    return 1;
+}
+
 sub summarize {
     my ($self) = @_;
     my $row = $self->_get_files_rs->search({}, {
@@ -75,6 +92,7 @@ sub summarize {
 
 sub scan {
     my ($self, $iterator) = @_;
+    $self->_set_cancel_scan(0);
     $self->signal_emit('scan_started');
     Glib::Idle->add($self->curry::weak::_scan_next($iterator));
     return 1;
@@ -82,22 +100,24 @@ sub scan {
 
 sub _scan_next {
     my ($self, $iterator) = @_;
-    my $next = $iterator->();
-    if (defined $next) {
-        unless ($next->is_dir) {
-            try {
-                if (my $iter = $self->_get_file_cache($next)) {
-                    $self->_update_file($iter);
+    unless ($self->_get_cancel_scan) {
+        my $next = $iterator->();
+        if (defined $next) {
+            unless ($next->is_dir) {
+                try {
+                    if (my $iter = $self->_get_file_cache($next)) {
+                        $self->_update_file($iter);
+                    }
+                    else {
+                        $self->_add_new_file($next);
+                    }
                 }
-                else {
-                    $self->_add_new_file($next);
-                }
+                catch {
+                    warn "Unable to process $next:\n\t$_\n";
+                };
             }
-            catch {
-                warn "Unable to process $next:\n\t$_\n";
-            };
+            return 1;
         }
-        return 1;
     }
     $self->signal_emit('scan_ended');
     return undef;
@@ -172,12 +192,20 @@ my $_concat = sub {
     } @_;
 };
 
+my $_date = sub {
+    my ($time) = @_;
+    my ($day, $month, $year) = (localtime $time)[3, 4, 5];
+    $year += 1900;
+    $month += 1;
+    return join '.', $day, $month, $year;
+};
+
 sub _post_calc {
     my ($self, $iter) = @_;
-    my ($id, $title, $artist, $album, $length, $track, $path)
+    my ($id, $title, $artist, $album, $length, $track, $path, $added)
         = $self->get($iter, map {
             library_column($_);
-        } qw( id title artist album length track path ));
+        } qw( id title artist album length track path added ));
     $self->set($iter,
         LIBRARY_SORT_TITLE,
             $_concat->($title, $artist, $id),
@@ -189,6 +217,8 @@ sub _post_calc {
             $_concat->(sprintf('%08d', $length), $track, $id),
         LIBRARY_LENGTH_READABLE,
             readable_length($length),
+        LIBRARY_ADDED_READABLE,
+            $added->$_date,
         LIBRARY_SEARCH,
             join(' ', map { defined($_) ? $_ : () }
                 length($title) ? (

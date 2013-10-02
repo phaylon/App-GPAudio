@@ -8,6 +8,7 @@
         <menu action="menu_edit">
             <menuitem action="add_playlist"/>
             <menuitem action="remove_playlist"/>
+            <menuitem action="rename_playlist"/>
             <separator/>
             <menuitem action="show_preferences"/>
         </menu>
@@ -18,4 +19,17 @@
             <menuitem action="show_about"/>
         </menu>
     </menubar>
+    <popup name="file_popup">
+        <menuitem action="toggle_file_album"/>
+        <menuitem action="toggle_file_year"/>
+        <menuitem action="toggle_file_added"/>
+        <separator/>
+        <menuitem action="file_properties"/>
+    </popup>
+    <popup name="item_popup">
+        <menuitem action="toggle_item_album"/>
+        <menuitem action="toggle_item_year"/>
+        <separator/>
+        <menuitem action="item_properties"/>
+    </popup>
 </ui>

@@ -24,6 +24,11 @@ sub _build_config_functions {
             my ($id, $size) = @_;
             return Gtk2::Image->new_from_stock($id, $size);
         },
+        theme_icon_file => sub {
+            my ($id, $size) = @_;
+            my ($file) = $theme->lookup_icon($id, $size);
+            return $file;
+        },
         theme_icon => sub {
             my ($id, $size) = @_;
             my ($file) = $theme->lookup_icon($id, $size);

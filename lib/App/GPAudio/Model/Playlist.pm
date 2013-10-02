@@ -31,7 +31,7 @@ property id => (
 );
 
 property title => (
-    is => 'ro',
+    is => 'rw',
     required => 1,
 );
 
@@ -64,11 +64,22 @@ property item_resultset => (
     },
 );
 
+sub new_empty {
+    my ($class) = @_;
+    return Gtk2::ListStore->new(@_types);
+}
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->set_column_types(@_types);
     $self->set_sort_column_id(PLAYLIST_POSITION, 'ascending');
     $self->_init_items;
+}
+
+sub get_file_object {
+    my ($self, $id) = @_;
+    my $item = $self->_item_rs->find($id);
+    return $item->file;
 }
 
 sub summarize {

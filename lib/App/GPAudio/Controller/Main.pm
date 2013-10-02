@@ -33,6 +33,17 @@ sub BUILD_INSTANCE {
     $self->_maximize_window;
 }
 
+sub on_toggle_visible {
+    my ($self, $widget, $action) = @_;
+    if ($action->get('active')) {
+        $widget->set(visible => 1);
+    }
+    else {
+        $widget->set(visible => 0);
+    }
+    return undef;
+}
+
 sub on_toggle_library_visible {
     my ($self, $action) = @_;
     if ($action->get('active')) {

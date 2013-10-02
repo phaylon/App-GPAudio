@@ -36,9 +36,11 @@ property library_model => (
     required => 1,
     handles => {
         _scan_paths => 'scan',
+        _cancel_scan => 'cancel_scan',
         _when_scan_starts => ['signal_connect', 'scan_started'],
         _when_scan_ends => ['signal_connect', 'scan_ended'],
         _summarize => 'summarize',
+        _get_file_object => 'get_file_object',
     },
 );
 
@@ -75,6 +77,24 @@ property summary_label => (
     },
 );
 
+property library_view => (
+    type => 'Object',
+    class => 'Gtk2::TreeView',
+    required => 1,
+    handles => {
+        _get_view_model => 'get_model',
+        _get_view_selection => 'get_selection',
+    },
+);
+
+property properties_dialog_builder => (
+    type => 'Code',
+    required => 1,
+    handles => {
+        _create_properties_dialog => 'execute',
+    },
+);
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_hide_rescan_bar;
@@ -83,6 +103,22 @@ sub BUILD_INSTANCE {
     $self->_when_scan_ends($self->curry::weak::on_scan_end);
     $self->_set_rescan_label('Scanning...');
     $self->_recalc_summary;
+}
+
+sub on_properties {
+    my ($self) = @_;
+    my $selection = $self->_get_view_selection;
+    my $model = $self->_get_view_model;
+    my @files = map {
+        my $path = $_;
+        my $iter = $model->get_iter($path);
+        $self->_get_file_object($model->get($iter, LIBRARY_ID));
+    } $selection->get_selected_rows;
+    my $dialog = $self->_create_properties_dialog(files => \@files);
+    $dialog->show_all;
+    my $response = $dialog->run;
+    $dialog->destroy;
+    return undef;
 }
 
 sub _recalc_summary {
@@ -176,6 +212,7 @@ sub on_scan_start {
 
 sub on_cancel_rescan {
     my ($self) = @_;
+    $self->_cancel_scan;
     return undef;
 }
 

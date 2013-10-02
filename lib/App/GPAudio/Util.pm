@@ -29,7 +29,7 @@ sub readable_expanded_length {
     my $hours = $full_seconds / $_hsecs;
     return join(':',
         $hours ? $hours : (),
-        $minutes,
+        sprintf($hours ? '%02d' : '%d', $minutes),
         sprintf('%02d', $seconds),
     );
 }
