@@ -21,8 +21,7 @@ sub BUILD_INSTANCE {
     $self->_when_active_model_changes(sub {
         my ($active, undef, $self) = @_;
         if (my $model = $active->get_value) {
-            my $filter = Gtk2::TreeModelFilter->new($model);
-            $self->set_model($filter);
+            $self->set_model($model);
         }
         else {
             $self->set_model(undef);

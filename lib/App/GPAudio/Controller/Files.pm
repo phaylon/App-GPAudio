@@ -141,11 +141,25 @@ sub _filter_files {
     return $show;
 }
 
-sub on_clear_search {
+sub _clear_search {
     my ($self, $entry) = @_;
     $entry->get_buffer->set(text => '');
     $self->_set_search_text('');
     $self->_refilter;
+    return 1;
+}
+
+sub on_clear_search {
+    my ($self, $entry) = @_;
+    $self->_clear_search($entry);
+    return undef;
+}
+
+sub on_search_key_press {
+    my ($self, $entry, $ev) = @_;
+    if (lc(Gtk2::Gdk->keyval_name($ev->keyval)) eq 'escape') {
+        $self->_clear_search($entry);
+    }
     return undef;
 }
 
