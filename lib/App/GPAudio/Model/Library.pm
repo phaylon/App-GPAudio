@@ -22,6 +22,8 @@ property schema => (
     required => 1,
     handles => {
         _get_files_rs => ['resultset', 'Library'],
+        _get_items_rs => ['resultset', 'PlaylistItem'],
+        _txn => 'txn_do',
     },
 );
 
@@ -105,8 +107,8 @@ sub _scan_next {
         if (defined $next) {
             unless ($next->is_dir) {
                 try {
-                    if (my $iter = $self->_get_file_cache($next)) {
-                        $self->_update_file($iter);
+                    if ($self->_file_stored($next)) {
+                        $self->_update_file($next);
                     }
                     else {
                         $self->_add_new_file($next);
@@ -123,9 +125,9 @@ sub _scan_next {
     return undef;
 }
 
-sub _update_file {
-    my ($self, $iter) = @_;
-    return 1;
+sub _file_stored {
+    my ($self, $path) = @_;
+    return $self->_get_files_rs->search({ path => $path })->count;
 }
 
 sub _extract_file_type {
@@ -140,7 +142,7 @@ sub _extract_file_type {
 sub _open_file {
     my ($self, $path) = @_;
     my $file = $path->stringify;
-    utf8::decode($file);
+    #utf8::decode($file);
     open my $fh, '<', $file
         or die "Unable to read from $file: $!\n";
     return $fh;
@@ -241,6 +243,23 @@ my $_to_columns = sub {
     } keys %$data;
 };
 
+sub remove_file {
+    my ($self, $id) = @_;
+    $self->_txn(sub {
+        $self->_get_files_rs->find($id)->delete;
+        $self->_get_items_rs->search({ library_id => $id })->delete;
+    });
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($self->get($iter, LIBRARY_ID) eq $id) {
+            $self->remove($iter);
+            return 1;
+        }
+        return undef;
+    });
+    return 1;
+}
+
 sub _add_new_file {
     my ($self, $path) = @_;
     return 1
@@ -260,6 +279,23 @@ sub _add_new_file {
     );
     $self->_set_file_cache($path, $iter);
     $self->_post_calc($iter);
+    return 1;
+}
+
+sub _update_file {
+    my ($self, $path) = @_;
+    my $data = $self->_extract_data($path);
+    my $item = $self->_get_files_rs->search({ path => $path })->first;
+    $item->update({ %$data });
+    $self->foreach(sub {
+        my ($self, undef, $iter) = @_;
+        if ($self->get($iter, LIBRARY_PATH) eq $path) {
+            $self->set($iter, $data->$_to_columns);
+            $self->_post_calc($iter);
+            return 1;
+        }
+        return undef;
+    });
     return 1;
 }
 

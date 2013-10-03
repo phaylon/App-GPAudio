@@ -24,6 +24,7 @@ $_types[PLAYLIST_LENGTH] = 'Glib::String';
 $_types[PLAYLIST_LENGTH_READABLE] = 'Glib::String';
 $_types[PLAYLIST_FONT_WEIGHT] = 'Glib::Int';
 $_types[PLAYLIST_FAILED] = 'Glib::String';
+$_types[PLAYLIST_SEARCH] = 'Glib::String';
 
 property id => (
     is => 'ro',
@@ -67,6 +68,13 @@ property item_resultset => (
 sub new_empty {
     my ($class) = @_;
     return Gtk2::ListStore->new(@_types);
+}
+
+sub reload {
+    my ($self) = @_;
+    $self->clear;
+    $self->_init_items;
+    return 1;
 }
 
 sub BUILD_INSTANCE {
@@ -289,10 +297,10 @@ sub _add_entry {
 
 sub _post_calc {
     my ($self, $iter) = @_;
-    my ($title, $length, $path)
+    my ($title, $length, $path, $artist, $album)
         = $self->get($iter, map {
             playlist_column($_);
-        } qw( title length path ));
+        } qw( title length path artist album ));
     $self->set($iter,
         PLAYLIST_LENGTH_READABLE, readable_length($length),
     );

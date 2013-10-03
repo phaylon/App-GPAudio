@@ -138,7 +138,7 @@ property notifier => (
     class => 'App::GPAudio::Model::Notifier',
     required => 1,
     handles => {
-        _notify => ['notify', 'Now Playing'],
+        _notify => ['notify'],
     },
 );
 
@@ -279,8 +279,8 @@ sub _play_item {
     $self->_set_scale_range(0, $length * $_time_factor);
     $self->_set_title_label($title);
     $self->_set_artist_label($artist);
-    $self->_notify(join ' - ',
-        $artist ? $artist : (),
+    $self->_notify(
+        $artist ? $artist : 'Now Playing',
         $title,
     );
     $self->_update_position;

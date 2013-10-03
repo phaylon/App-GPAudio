@@ -2,6 +2,7 @@
     <menubar name="main_menu">
         <menu action="menu_file">
             <menuitem action="rescan"/>
+            <menuitem action="find_missing"/>
             <separator/>
             <menuitem action="quit"/>
         </menu>
@@ -14,9 +15,6 @@
         </menu>
         <menu action="menu_view">
             <menuitem action="show_library_pane"/>
-        </menu>
-        <menu action="menu_help">
-            <menuitem action="show_about"/>
         </menu>
     </menubar>
     <popup name="file_popup">

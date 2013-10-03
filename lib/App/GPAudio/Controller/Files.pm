@@ -6,6 +6,7 @@ use Path::Tiny;
 use App::GPAudio::Model::Library::Columns qw( :all );
 use App::GPAudio::Util qw( readable_expanded_length );
 use curry::weak;
+use utf8;
 
 use namespace::clean;
 
@@ -41,6 +42,10 @@ property library_model => (
         _when_scan_ends => ['signal_connect', 'scan_ended'],
         _summarize => 'summarize',
         _get_file_object => 'get_file_object',
+        _get_file_count => 'iter_n_children',
+        _get_iter_by_index => ['iter_nth_child', undef],
+        _get_file_value => 'get',
+        _remove_file => 'remove_file',
     },
 );
 
@@ -95,6 +100,24 @@ property properties_dialog_builder => (
     },
 );
 
+property missing_dialog_builder => (
+    type => 'Code',
+    required => 1,
+    handles => {
+        _create_missing_dialog => 'execute',
+    },
+);
+
+property active_playlist => (
+    type => 'Object',
+    class => 'App::GPAudio::Model::Bin',
+    required => 1,
+    handles => {
+        _set_active_playlist => 'set_value',
+        _get_active_playlist => 'get_value',
+    },
+);
+
 sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->_hide_rescan_bar;
@@ -103,6 +126,56 @@ sub BUILD_INSTANCE {
     $self->_when_scan_ends($self->curry::weak::on_scan_end);
     $self->_set_rescan_label('Scanning...');
     $self->_recalc_summary;
+}
+
+sub on_find_missing {
+    my ($self) = @_;
+    my $model = Gtk2::ListStore->new('Glib::String');
+    $model->set_sort_column_id(0, 'ascending');
+    my $view = $self->_create_missing_dialog(model => $model);
+    my $dialog = $view->get_root;
+    my $progress = $view->get_widget('progress');
+    $dialog->show_all;
+    my $ok_button = $dialog->get_widget_for_response('ok');
+    $ok_button->set_sensitive(0);
+    my $last_index = $self->_get_file_count - 1;
+    my $index = 0;
+    my @missing;
+    my $is_cancelled;
+    Glib::Idle->add(sub {
+        return undef
+            if $is_cancelled;
+        my $iter = $self->_get_iter_by_index($index++);
+        $progress->set_fraction(
+            (1 / ($last_index + 1))
+            * $index
+        );
+        my $path = $self->_get_file_value($iter, LIBRARY_PATH);
+        utf8::downgrade($path);
+        unless (open my $fh, '<', $path) {
+            push @missing, $self->_get_file_value($iter, LIBRARY_ID);
+            my $iter = $model->append;
+            $model->set($iter, 0 => $path);
+        }
+        if ($index > $last_index) {
+            $ok_button->set_sensitive(1);
+            return undef;
+        }
+        return 1;
+    });
+    my $response = $dialog->run;
+    if ($response eq 'ok') {
+        $self->_remove_file($_)
+            for @missing;
+        $self->_get_active_playlist->reload
+            if defined $self->_get_active_playlist;
+        $self->_recalc_summary;
+    }
+    else {
+        $is_cancelled = 1;
+    }
+    $dialog->destroy;
+    return undef;
 }
 
 sub on_properties {
@@ -204,7 +277,9 @@ sub on_rescan {
                 sprintf('Scanning %s...', $next->parent),
             );
         }
-        return $next;
+        my $next_path = $next->stringify;
+        utf8::decode($next_path);
+        return path($next_path);
     };
     $self->_scan_paths($iterator);
     return undef;
@@ -214,6 +289,8 @@ sub on_scan_end {
     my ($self) = @_;
     $self->_hide_rescan_bar;
     $self->_set_rescan_label('Scanning...');
+    $self->_get_active_playlist->reload
+        if defined $self->_get_active_playlist;
     $self->_recalc_summary;
     return undef;
 }

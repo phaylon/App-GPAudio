@@ -20,6 +20,7 @@ my @_columns = qw(
     length_readable
     font_weight
     failed
+    search
 );
 
 my $_idx = 0;

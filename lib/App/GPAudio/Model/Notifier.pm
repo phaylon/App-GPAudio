@@ -53,13 +53,13 @@ sub notify {
     my ($self, $summary, $body) = @_;
     my $id = $self->_create(
         'GPAudio',
-        $self->_get_last_id,
+        $self->_get_last_id || 0,
         $self->_get_notification_icon,
         $summary,
         $body,
         [],
         {},
-        5000,
+        3000,
     );
     $self->_set_last_id($id);
     return 1;
