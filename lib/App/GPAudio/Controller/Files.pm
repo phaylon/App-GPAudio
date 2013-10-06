@@ -151,8 +151,9 @@ sub on_find_missing {
             * $index
         );
         my $path = $self->_get_file_value($iter, LIBRARY_PATH);
-        utf8::downgrade($path);
-        unless (open my $fh, '<', $path) {
+        my $dpath = $path;
+        utf8::downgrade($dpath);
+        unless (-e $dpath or -e $path) {
             push @missing, $self->_get_file_value($iter, LIBRARY_ID);
             my $iter = $model->append;
             $model->set($iter, 0 => $path);

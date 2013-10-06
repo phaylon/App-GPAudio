@@ -175,8 +175,8 @@ sub _extract_mp3_data {
     my ($self, $path, $info, $tags) = @_;
     my $data = {
         title => $tags->{TIT2} // $path->basename,
-        album => $tags->{TALB},
-        artist => $tags->{TPE1} // $tags->{TPE2} // $tags->{TPE4},
+        album => $tags->{TALB} // '',
+        artist => $tags->{TPE1} // $tags->{TPE2} // $tags->{TPE4} // '',
         year => $tags->{TDRC} // $tags->{TYER},
         track => $tags->{TRCK},
         length => int($info->{song_length_ms} / 1000),

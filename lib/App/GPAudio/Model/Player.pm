@@ -131,6 +131,8 @@ sub stop {
 sub play {
     my ($self, $path) = @_;
     $self->stop;
+    use utf8;
+    utf8::decode($path);
     $self->_set_uri("file://$path");
     $self->_set_state('playing');
     return 1;

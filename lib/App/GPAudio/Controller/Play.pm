@@ -16,6 +16,7 @@ property active_playlist => (
     required => 1,
     handles => {
         _get_active_playlist => 'get_value',
+        _when_playlist_changes => ['signal_connect', 'notify::value'],
     },
 );
 
@@ -162,6 +163,16 @@ my $_time_factor = 1_000_000_000;
 
 sub BUILD_INSTANCE {
     my ($self) = @_;
+    $self->_when_playlist_changes(sub {
+        my ($model, undef, $self) = @_;
+        my $list = $model->get_value;
+        my $act = $self->_get_playing_playlist;
+        if ($list and $act and $list->get_id eq $act->get_id) {
+            $model->set_value($act)
+                unless $list eq $act;
+        }
+        return undef;
+    }, $self);
     $self->_when_media_key_pressed(sub {
         my ($app, $key) = @_;
         return undef
@@ -278,10 +289,10 @@ sub _play_item {
     $self->_set_duration_label(readable_expanded_length($length));
     $self->_set_scale_range(0, $length * $_time_factor);
     $self->_set_title_label($title);
-    $self->_set_artist_label($artist);
+    $self->_set_artist_label($artist ? "by $artist" : 'by Unknown Artist');
     $self->_notify(
-        $artist ? $artist : 'Now Playing',
         $title,
+        $artist ? "by $artist" : 'by Unknown Artist',
     );
     $self->_update_position;
     return 1;

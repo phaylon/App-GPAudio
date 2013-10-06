@@ -1,9 +1,33 @@
 #!/usr/bin/env perl
 use strictures 1;
 use FindBin;
-use lib "$FindBin::Bin/../lib";
+use File::ShareDir qw( dist_dir );
+use Path::Tiny;
+
+my $share_dir;
+my $data_db;
+BEGIN {
+    if (-e "$FindBin::Bin/../Makefile.PL") {
+        unshift @INC, "$FindBin::Bin/../lib";
+        $share_dir = "$FindBin::Bin/../share";
+        $data_db = "$FindBin::Bin/../test.db";
+    }
+    else {
+        $share_dir = dist_dir 'App-GPAudio';
+        $data_db = join '/', $ENV{HOME}, '.gpaudio/storage.db';
+    }
+}
+
 use App::GPAudio;
+use App::GPAudio::Schema;
+
+unless (-e $data_db) {
+    path($data_db)->parent->mkpath;
+    my $schema = App::GPAudio::Schema->connect("dbi:SQLite:$data_db");
+    $schema->deploy;
+}
 
 App::GPAudio->new(
-    config_dir => "$FindBin::Bin/../share",
+    config_dir => $share_dir,
+    database => $data_db,
 )->run;

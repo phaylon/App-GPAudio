@@ -44,6 +44,7 @@ property settings => (
             show_file_album
             show_file_year
             show_file_added
+            library_sort
         )),
     },
 );
@@ -89,6 +90,16 @@ property playlist_selection => (
     },
 );
 
+property library_sort => (
+    type => 'Object',
+    class => 'Gtk2::TreeModelSort',
+    required => 1,
+    handles => {
+        _get_expanded_sort_settings => 'get_sort_column_id',
+        _set_expanded_sort_settings => 'set_sort_column_id',
+    },
+);
+
 my @_toggle = qw(
     show_item_album
     show_item_year
@@ -119,6 +130,7 @@ my @_load = (
     ['show_file_album', '_set_show_file_album'],
     ['show_file_year', '_set_show_file_year'],
     ['show_file_added', '_set_show_file_added', 0],
+    ['library_sort', '_set_sort_column'],
 );
 
 my @_save = (
@@ -131,6 +143,7 @@ my @_save = (
     ['show_file_album', '_get_show_file_album'],
     ['show_file_year', '_get_show_file_year'],
     ['show_file_added', '_get_show_file_added'],
+    ['library_sort', '_get_sort_column'],
 );
 
 sub startup {
@@ -162,6 +175,21 @@ sub shutdown {
             });
         }
     });
+    return 1;
+}
+
+sub _get_sort_column {
+    my ($self) = @_;
+    my ($column, $order) = $self->_get_expanded_sort_settings;
+    return defined($column) ? join(':', $column, $order) : undef;
+}
+
+sub _set_sort_column {
+    my ($self, $value) = @_;
+    if (defined $value) {
+        my ($column, $order) = split m{:}, $value, -1;
+        $self->_set_expanded_sort_settings($column, $order);
+    }
     return 1;
 }
 

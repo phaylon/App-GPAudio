@@ -13,6 +13,18 @@ extends 'GMVC';
 our $VERSION = '0.000001'; # 0.0.1
 $VERSION = eval $VERSION;
 
+property database => (
+    is => 'rpo',
+    required => 1,
+);
+
+sub _build_config_variables {
+    my ($self) = @_;
+    return {
+        DB => $self->_get_database,
+    };
+}
+
 sub _build_config_functions {
     my ($self) = @_;
     my $theme = Gnome2::IconTheme->new;
