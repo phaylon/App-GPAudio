@@ -207,12 +207,13 @@ sub _recalc_summary {
 
 sub _filter_files {
     my ($self, $model, $iter) = @_;
-    my $search = $self->_get_search_text;
+    my $search = lc($self->_get_search_text // '');
+    $search =~ s{(?:^\s+|\s+$)}{}g;
     return 1
         unless length $search;
-    my $text = $model->get($iter, LIBRARY_SEARCH);
-    my $show = $text =~ m{\Q$search\E}i;
-    return $show;
+    my @words = split m{\s+}, $search;
+    my $text = lc $model->get($iter, LIBRARY_SEARCH);
+    return not grep { $text !~ m{\Q$_\E} } @words;
 }
 
 sub _clear_search {
