@@ -55,6 +55,7 @@ $_types[LIBRARY_YEAR] = 'Glib::String';
 $_types[LIBRARY_LENGTH] = 'Glib::String';
 $_types[LIBRARY_LENGTH_READABLE] = 'Glib::String';
 $_types[LIBRARY_SEARCH] = 'Glib::String';
+$_types[LIBRARY_LISTED] = 'Pango::Style';
 
 $_types[LIBRARY_SORT_LENGTH] = 'Glib::String';
 $_types[LIBRARY_SORT_TITLE] = 'Glib::String';
@@ -65,6 +66,22 @@ sub BUILD_INSTANCE {
     my ($self) = @_;
     $self->set_column_types(@_types);
     $self->_init_from_storage;
+    $self->mark_listed([]);
+}
+
+sub mark_listed {
+    my ($self, $ids) = @_;
+    my %map = map { ($_, 1) } @$ids;
+    $self->foreach(sub {
+        my ($self, undef, $iter) = @_;
+        my $listed = $map{ $self->get($iter, LIBRARY_ID) };
+        $self->set($iter,
+            LIBRARY_LISTED,
+            $listed ? 'italic' : 'normal',
+        );
+        return undef;
+    });
+    return 1;
 }
 
 sub get_file_object {

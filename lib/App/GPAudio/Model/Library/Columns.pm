@@ -23,6 +23,7 @@ my @_columns = qw(
     length_readable
     added_readable
     search
+    listed
 );
 
 my $_idx = 0;

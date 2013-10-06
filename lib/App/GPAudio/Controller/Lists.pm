@@ -103,6 +103,15 @@ property summary_label => (
     },
 );
 
+property library_model => (
+    type => 'Object',
+    class => 'App::GPAudio::Model::Library',
+    required => 1,
+    handles => {
+        _mark_as_listed => 'mark_listed',
+    },
+);
+
 sub _recalc_summary {
     my ($self) = @_;
     if (my $list = $self->_get_active_playlist) {
@@ -115,6 +124,26 @@ sub _recalc_summary {
     else {
         $self->_set_summary_label('');
     }
+    return 1;
+}
+
+sub _gather_listed {
+    my ($self) = @_;
+    my $list = $self->_get_active_playlist
+        or return [];
+    my %map;
+    $list->foreach(sub {
+        my ($list, undef, $iter) = @_;
+        $map{ $list->get($iter, PLAYLIST_FILE_ID) }++;
+        return undef;
+    });
+    return [keys %map];
+}
+
+sub _remap_listed {
+    my ($self) = @_;
+    my $file_ids = $self->_gather_listed;
+    $self->_mark_as_listed($file_ids);
     return 1;
 }
 
@@ -164,6 +193,7 @@ sub on_drag_received {
     $ctx->finish(1, 0, $etime);
     $self->_set_item_count($list->iter_n_children);
     $self->_recalc_summary;
+    $self->_remap_listed;
     return undef;
 }
 
@@ -194,6 +224,7 @@ sub on_key_press {
             }
             $self->_set_item_count($list->iter_n_children);
             $self->_recalc_summary;
+            $self->_remap_listed;
         }
     }
     return undef;
@@ -211,6 +242,7 @@ sub on_select {
         $self->_set_active_playlist(undef);
         $self->_set_item_count(0);
     }
+    $self->_remap_listed;
     $self->_recalc_summary;
     return undef;
 }
