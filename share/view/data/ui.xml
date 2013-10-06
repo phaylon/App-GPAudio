@@ -4,6 +4,8 @@
             <menuitem action="rescan"/>
             <menuitem action="find_missing"/>
             <separator/>
+            <menuitem action="jump"/>
+            <separator/>
             <menuitem action="quit"/>
         </menu>
         <menu action="menu_edit">

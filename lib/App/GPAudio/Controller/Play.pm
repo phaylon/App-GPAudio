@@ -159,6 +159,14 @@ property dbus => (
     },
 );
 
+property jump_dialog_builder => (
+    type => 'Code',
+    required => 1,
+    handles => {
+        _create_jump_dialog => 'execute',
+    },
+);
+
 my $_time_factor = 1_000_000_000;
 
 sub BUILD_INSTANCE {
@@ -210,6 +218,93 @@ sub BUILD_INSTANCE {
     });
     $self->_set_position_label('--:--');
     $self->_set_duration_label('--:--');
+}
+
+sub on_jump {
+    my ($self) = @_;
+    my $list = $self->_get_active_playlist;
+    my $filter = Gtk2::TreeModelFilter->new($list);
+    my $do_refilter = $filter->curry::weak::refilter;
+    my $do_get_iter = $filter->curry::weak::get_iter;
+    my $do_get_value = $filter->curry::weak::get;
+    my $view = $self->_create_jump_dialog(model => $filter);
+    my $dialog = $view->get_root;
+    $dialog->show_all;
+    my $entry = $view->get_widget('entry');
+    my $buffer = $entry->get_buffer;
+    my $tree = $view->get_widget('list');
+    my $ok = $dialog->get_widget_for_response('ok');
+    my $selection = $tree->get_selection;
+    my $do_count = $filter->curry::weak::iter_n_children;
+    my $found;
+    my $do_update = sub {
+        $do_refilter->();
+        if ($do_count->() == 1) {
+            $ok->set_sensitive(1);
+            my $iter = $do_get_iter->(Gtk2::TreePath->new_from_indices(0));
+            $found = $do_get_value->($iter, PLAYLIST_ID);
+        }
+        else {
+            $ok->set_sensitive(0);
+            $found = undef;
+        }
+        return 1;
+    };
+    my @words;
+    my %canon;
+    $filter->foreach(sub {
+        my ($filter, $path, $iter) = @_;
+        my ($id, $file_id) = $filter->get($iter,
+            PLAYLIST_ID,
+            PLAYLIST_FILE_ID,
+        );
+        $canon{ $file_id } = $id;
+        return undef;
+    });
+    $filter->set_visible_func(sub {
+        my ($filter, $iter, $self) = @_;
+        my ($title, $artist, $id, $file_id) = $filter->get($iter,
+            PLAYLIST_TITLE,
+            PLAYLIST_ARTIST,
+            PLAYLIST_ID,
+            PLAYLIST_FILE_ID,
+        );
+        return 0
+            unless $canon{ $file_id } eq $id;
+        return 1
+            unless @words;
+        my $text = lc join ' ', $title, $artist;
+        return not grep { $text !~ m{\Q$_\E} } @words;
+    }, $self);
+    $buffer->signal_connect('notify::text', sub {
+        my ($buffer, undef, $filter) = @_;
+        my $text = lc $buffer->get('text');
+        $text =~ s{(?:^\s+|\s+$)}{}g;
+        if (length $text) {
+            @words = split m{\s+}, $text;
+        }
+        else {
+            @words = ();
+        }
+        $do_update->();
+        return undef;
+    }, $filter);
+    $tree->signal_connect('row_activated', sub {
+        my ($tree, $path, $col) = @_;
+        my $model = $tree->get_model;
+        my $iter = $model->get_iter($path);
+        $found = $model->get($iter, PLAYLIST_ID);
+        $ok->clicked;
+        return undef;
+    });
+    $do_update->();
+    my $response = $dialog->run;
+    if ($response eq 'ok') {
+        $self->_play_item_in_list($list, $found);
+        $self->_scroll_to($found);
+    }
+    $dialog->destroy;
+    return undef;
 }
 
 sub _mark_current_as_failed {
