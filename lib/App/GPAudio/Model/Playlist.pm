@@ -72,8 +72,11 @@ sub new_empty {
 
 sub reload {
     my ($self) = @_;
+    my $playing = $self->find_playing;
     $self->clear;
     $self->_init_items;
+    $self->mark_as_playing($playing)
+        if defined $playing;
     return 1;
 }
 
@@ -151,6 +154,20 @@ sub get_by_id {
         my ($self, $path, $iter) = @_;
         if ($self->get($iter, PLAYLIST_ID) eq $id) {
             $found = $self->get($iter, $col);
+            return 1;
+        }
+        return undef;
+    });
+    return $found;
+}
+
+sub find_playing {
+    my ($self) = @_;
+    my $found;
+    $self->foreach(sub {
+        my ($self, $path, $iter) = @_;
+        if ($self->get($iter, PLAYLIST_FONT_WEIGHT) == 800) {
+            $found = $self->get($iter, PLAYLIST_ID);
             return 1;
         }
         return undef;
