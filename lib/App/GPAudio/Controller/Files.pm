@@ -137,6 +137,7 @@ sub on_find_missing {
     my $progress = $view->get_widget('progress');
     $dialog->show_all;
     my $ok_button = $dialog->get_widget_for_response('ok');
+    my $cancel_button = $dialog->get_widget_for_response('cancel');
     $ok_button->set_sensitive(0);
     my $last_index = $self->_get_file_count - 1;
     my $index = 0;
@@ -159,7 +160,12 @@ sub on_find_missing {
             $model->set($iter, 0 => $path);
         }
         if ($index > $last_index) {
-            $ok_button->set_sensitive(1);
+            if (@missing) {
+                $ok_button->set_sensitive(1);
+            }
+            else {
+                $cancel_button->set_label('Close');
+            }
             return undef;
         }
         return 1;
